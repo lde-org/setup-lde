@@ -1,0 +1,80 @@
+name: "Setup lde"
+description: "Install lde package manager"
+
+inputs:
+    version:
+        description: "Version to install (e.g., '0.8.1', 'latest', or 'nightly')"
+        required: false
+        default: "latest"
+
+runs:
+    using: "composite"
+    steps:
+        - name: Resolve version
+          id: resolve
+          shell: bash
+          run: |
+              VERSION="${{ inputs.version }}"
+              if [ "$VERSION" = "nightly" ]; then
+                echo "tag=nightly" >> "$GITHUB_OUTPUT"
+              elif [ "$VERSION" = "latest" ]; then
+                TAG=$(curl -sfL "https://github.com/lde-org/lde/releases/latest" -o /dev/null -w '%{url_effective}' | sed 's|.*/||')
+                echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+              else
+                echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+              fi
+
+        - name: Determine asset name (Unix)
+          if: runner.os != 'Windows'
+          id: asset_unix
+          shell: bash
+          run: |
+              OS="$(uname -s)"
+              ARCH="$(uname -m)"
+              case "$OS-$ARCH" in
+                Linux-x86_64)   echo "asset=lde-linux-x86-64" >> "$GITHUB_OUTPUT" ;;
+                Linux-aarch64)  echo "asset=lde-linux-aarch64" >> "$GITHUB_OUTPUT" ;;
+                Darwin-x86_64)  echo "asset=lde-macos-x86-64" >> "$GITHUB_OUTPUT" ;;
+                Darwin-arm64)   echo "asset=lde-macos-aarch64" >> "$GITHUB_OUTPUT" ;;
+                *) echo "Unsupported platform: $OS $ARCH"; exit 1 ;;
+              esac
+
+        - name: Determine asset name (Windows)
+          if: runner.os == 'Windows'
+          id: asset_windows
+          shell: pwsh
+          run: |
+              $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64") { "aarch64" } else { "x86-64" }
+              echo "asset=lde-windows-$arch.exe" >> $env:GITHUB_OUTPUT
+
+        - name: Cache lde
+          id: cache
+          uses: actions/cache@v4
+          with:
+              path: ~/.lde
+              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}
+
+        - name: Install lde (Unix)
+          if: runner.os != 'Windows'
+          shell: bash
+          run: |
+              mkdir -p "$HOME/.lde"
+              if [ "${{ steps.cache.outputs.cache-hit }}" != "true" ]; then
+                curl -fL "https://github.com/lde-org/lde/releases/download/${{ steps.resolve.outputs.tag }}/${{ steps.asset_unix.outputs.asset }}" \
+                  -o "$HOME/.lde/lde"
+                chmod +x "$HOME/.lde/lde"
+              fi
+              "$HOME/.lde/lde" --setup
+              echo "$HOME/.lde" >> "$GITHUB_PATH"
+
+        - name: Install lde (Windows)
+          if: runner.os == 'Windows'
+          shell: pwsh
+          run: |
+              New-Item -ItemType Directory "$env:USERPROFILE\.lde" -Force | Out-Null
+              if ("${{ steps.cache.outputs.cache-hit }}" -ne "true") {
+                Invoke-WebRequest "https://github.com/lde-org/lde/releases/download/${{ steps.resolve.outputs.tag }}/${{ steps.asset_windows.outputs.asset }}" `
+                  -OutFile "$env:USERPROFILE\.lde\lde.exe"
+              }
+              & "$env:USERPROFILE\.lde\lde.exe" --setup
+              echo "$env:USERPROFILE\.lde" >> $env:GITHUB_PATH
