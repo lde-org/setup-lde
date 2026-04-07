@@ -1,5 +1,8 @@
 name: "Setup lde"
 description: "Install lde package manager"
+branding:
+    color: blue
+    icon: moon
 
 inputs:
     version:
