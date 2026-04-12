@@ -78,7 +78,7 @@ runs:
                   -o "$HOME/.lde/lde"
                 chmod +x "$HOME/.lde/lde"
               fi
-              "$HOME/.lde/lde" --setup
+              [ -z "${{ inputs.platform }}" ] && "$HOME/.lde/lde" --setup
               echo "$HOME/.lde" >> "$GITHUB_PATH"
 
         - name: Install lde (Windows)
