@@ -9,6 +9,14 @@ inputs:
         description: "Version to install (e.g., '0.8.1', 'latest', or 'nightly')"
         required: false
         default: "latest"
+    platform:
+        description: "Override platform (e.g., 'Linux', 'Darwin', 'Android'). Defaults to auto-detected."
+        required: false
+        default: ""
+    arch:
+        description: "Override architecture (e.g., 'x86_64', 'aarch64'). Defaults to auto-detected."
+        required: false
+        default: ""
 
 runs:
     using: "composite"
@@ -32,13 +40,16 @@ runs:
           id: asset_unix
           shell: bash
           run: |
-              OS="$(uname -s)"
-              ARCH="$(uname -m)"
+              OS="${{ inputs.platform }}"
+              ARCH="${{ inputs.arch }}"
+              [ -z "$OS" ] && { [ "$(uname -o)" = "Android" ] && OS="Android" || OS="$(uname -s)"; }
+              [ -z "$ARCH" ] && ARCH="$(uname -m)"
               case "$OS-$ARCH" in
-                Linux-x86_64)   echo "asset=lde-linux-x86-64" >> "$GITHUB_OUTPUT" ;;
-                Linux-aarch64)  echo "asset=lde-linux-aarch64" >> "$GITHUB_OUTPUT" ;;
-                Darwin-x86_64)  echo "asset=lde-macos-x86-64" >> "$GITHUB_OUTPUT" ;;
-                Darwin-arm64)   echo "asset=lde-macos-aarch64" >> "$GITHUB_OUTPUT" ;;
+                Linux-x86_64)    echo "asset=lde-linux-x86-64" >> "$GITHUB_OUTPUT" ;;
+                Linux-aarch64)   echo "asset=lde-linux-aarch64" >> "$GITHUB_OUTPUT" ;;
+                Android-aarch64) echo "asset=lde-android-aarch64" >> "$GITHUB_OUTPUT" ;;
+                Darwin-x86_64)   echo "asset=lde-macos-x86-64" >> "$GITHUB_OUTPUT" ;;
+                Darwin-arm64)    echo "asset=lde-macos-aarch64" >> "$GITHUB_OUTPUT" ;;
                 *) echo "Unsupported platform: $OS $ARCH"; exit 1 ;;
               esac
 
@@ -55,7 +66,7 @@ runs:
           uses: actions/cache@v5
           with:
               path: ~/.lde/lde${{ runner.os == 'Windows' && '.exe' || '' }}
-              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}
+              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}${{ inputs.platform != '' && format('-{0}', inputs.platform) || '' }}
 
         - name: Install lde (Unix)
           if: runner.os != 'Windows'
