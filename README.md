@@ -45,10 +45,14 @@ By default this will simply get the `latest` pinned release and set up `lde` in 
 
 ## Supported platforms
 
-| `platform` | `arch`    | Binary                  |
-| ---------- | --------- | ----------------------- |
-| `Linux`    | `x86_64`  | `lde-linux-x86-64`      |
-| `Linux`    | `aarch64` | `lde-linux-aarch64`     |
-| `Android`  | `aarch64` | `lde-android-aarch64`   |
-| `Darwin`   | `x86_64`  | `lde-macos-x86-64`      |
-| `Darwin`   | `arm64`   | `lde-macos-aarch64`     |
+Binaries are distributed as zips and extracted to `~/.lde` (or `%USERPROFILE%\.lde` on Windows).
+
+| `platform` | `arch`    | Asset                     |
+| ---------- | --------- | ------------------------- |
+| `Linux`    | `x86_64`  | `lde-linux-x86-64.zip`    |
+| `Linux`    | `aarch64` | `lde-linux-aarch64.zip`   |
+| `Android`  | `aarch64` | `lde-android-aarch64.zip` |
+| `Darwin`   | `x86_64`  | `lde-macos-x86-64.zip`    |
+| `Darwin`   | `arm64`   | `lde-macos-aarch64.zip`   |
+| `Windows`  | `x86_64`  | `lde-windows-x86-64.zip`  |
+| `Windows`  | `aarch64` | `lde-windows-aarch64.zip` |

@@ -45,13 +45,15 @@ runs:
               [ -z "$OS" ] && { [ "$(uname -o)" = "Android" ] && OS="Android" || OS="$(uname -s)"; }
               [ -z "$ARCH" ] && ARCH="$(uname -m)"
               case "$OS-$ARCH" in
-                Linux-x86_64)    echo "asset=lde-linux-x86-64" >> "$GITHUB_OUTPUT" ;;
-                Linux-aarch64)   echo "asset=lde-linux-aarch64" >> "$GITHUB_OUTPUT" ;;
-                Android-aarch64) echo "asset=lde-android-aarch64" >> "$GITHUB_OUTPUT" ;;
-                Darwin-x86_64)   echo "asset=lde-macos-x86-64" >> "$GITHUB_OUTPUT" ;;
-                Darwin-arm64)    echo "asset=lde-macos-aarch64" >> "$GITHUB_OUTPUT" ;;
+                Linux-x86_64)    BIN="lde-linux-x86-64" ;;
+                Linux-aarch64)   BIN="lde-linux-aarch64" ;;
+                Android-aarch64) BIN="lde-android-aarch64" ;;
+                Darwin-x86_64)   BIN="lde-macos-x86-64" ;;
+                Darwin-arm64)    BIN="lde-macos-aarch64" ;;
                 *) echo "Unsupported platform: $OS $ARCH"; exit 1 ;;
               esac
+              echo "asset=$BIN.zip" >> "$GITHUB_OUTPUT"
+              echo "inner=$BIN" >> "$GITHUB_OUTPUT"
 
         - name: Determine asset name (Windows)
           if: runner.os == 'Windows'
@@ -59,7 +61,8 @@ runs:
           shell: pwsh
           run: |
               $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64") { "aarch64" } else { "x86-64" }
-              echo "asset=lde-windows-$arch.exe" >> $env:GITHUB_OUTPUT
+              echo "asset=lde-windows-$arch.zip" >> $env:GITHUB_OUTPUT
+              echo "inner=lde-windows-$arch.exe" >> $env:GITHUB_OUTPUT
 
         - name: Cache lde
           id: cache
@@ -75,7 +78,19 @@ runs:
               mkdir -p "$HOME/.lde"
               if [ "${{ steps.cache.outputs.cache-hit }}" != "true" ]; then
                 curl -fL "https://github.com/lde-org/lde/releases/download/${{ steps.resolve.outputs.tag }}/${{ steps.asset_unix.outputs.asset }}" \
-                  -o "$HOME/.lde/lde"
+                  -o "$HOME/.lde/lde.zip"
+                if command -v unzip >/dev/null 2>&1; then
+                  unzip -o -q "$HOME/.lde/lde.zip" -d "$HOME/.lde"
+                elif command -v busybox >/dev/null 2>&1; then
+                  busybox unzip -o -q "$HOME/.lde/lde.zip" -d "$HOME/.lde"
+                elif command -v python3 >/dev/null 2>&1; then
+                  python3 -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$HOME/.lde/lde.zip" "$HOME/.lde"
+                else
+                  echo "Error: no unzip available (install unzip, busybox, or python3 and re-run)" >&2
+                  exit 1
+                fi
+                mv "$HOME/.lde/${{ steps.asset_unix.outputs.inner }}" "$HOME/.lde/lde"
+                rm -f "$HOME/.lde/lde.zip"
                 chmod +x "$HOME/.lde/lde"
               fi
               [ -z "${{ inputs.platform }}" ] && "$HOME/.lde/lde" --setup
@@ -88,7 +103,10 @@ runs:
               New-Item -ItemType Directory "$env:USERPROFILE\.lde" -Force | Out-Null
               if ("${{ steps.cache.outputs.cache-hit }}" -ne "true") {
                 Invoke-WebRequest "https://github.com/lde-org/lde/releases/download/${{ steps.resolve.outputs.tag }}/${{ steps.asset_windows.outputs.asset }}" `
-                  -OutFile "$env:USERPROFILE\.lde\lde.exe"
+                  -OutFile "$env:USERPROFILE\.lde\lde.zip"
+                Expand-Archive -Path "$env:USERPROFILE\.lde\lde.zip" -DestinationPath "$env:USERPROFILE\.lde" -Force
+                Move-Item -Path "$env:USERPROFILE\.lde\${{ steps.asset_windows.outputs.inner }}" -Destination "$env:USERPROFILE\.lde\lde.exe" -Force
+                Remove-Item "$env:USERPROFILE\.lde\lde.zip" -Force
               }
               & "$env:USERPROFILE\.lde\lde.exe" --setup
               echo "$env:USERPROFILE\.lde" >> $env:GITHUB_PATH
