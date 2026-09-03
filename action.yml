@@ -17,6 +17,10 @@ inputs:
         description: "Override architecture (e.g., 'x86_64', 'aarch64'). Defaults to auto-detected."
         required: false
         default: ""
+    libc:
+        description: "Override libc variant for Linux builds (e.g., 'musl', 'glibc'). Defaults to auto-detected."
+        required: false
+        default: ""
 
 runs:
     using: "composite"
@@ -42,11 +46,32 @@ runs:
           run: |
               OS="${{ inputs.platform }}"
               ARCH="${{ inputs.arch }}"
+              LIBC="${{ inputs.libc }}"
               [ -z "$OS" ] && { [ "$(uname -o)" = "Android" ] && OS="Android" || OS="$(uname -s)"; }
               [ -z "$ARCH" ] && ARCH="$(uname -m)"
+              if [ -n "$LIBC" ] && [ "$OS" != "Linux" ]; then
+                echo "Error: inputs.libc ('$LIBC') is only supported for Linux (resolved platform: $OS)" >&2
+                exit 1
+              fi
+              SUFFIX=""
+              if [ "$OS" = "Linux" ]; then
+                if [ -z "$LIBC" ]; then
+                  # Auto-detect: musl if the musl loader is present, otherwise glibc
+                  if compgen -G "/lib/ld-musl-*.so.1" >/dev/null 2>&1; then
+                    LIBC=musl
+                  else
+                    LIBC=glibc
+                  fi
+                fi
+                case "$LIBC" in
+                  musl)  SUFFIX="-musl" ;;
+                  glibc) SUFFIX="" ;;
+                  *) echo "Error: unsupported libc '$LIBC' (expected 'glibc' or 'musl')" >&2; exit 1 ;;
+                esac
+              fi
               case "$OS-$ARCH" in
-                Linux-x86_64)    BIN="lde-linux-x86-64" ;;
-                Linux-aarch64)   BIN="lde-linux-aarch64" ;;
+                Linux-x86_64)    BIN="lde-linux-x86-64$SUFFIX" ;;
+                Linux-aarch64)   BIN="lde-linux-aarch64$SUFFIX" ;;
                 Android-aarch64) BIN="lde-android-aarch64" ;;
                 Darwin-x86_64)   BIN="lde-macos-x86-64" ;;
                 Darwin-arm64)    BIN="lde-macos-aarch64" ;;
@@ -54,6 +79,9 @@ runs:
               esac
               echo "asset=$BIN.zip" >> "$GITHUB_OUTPUT"
               echo "inner=$BIN" >> "$GITHUB_OUTPUT"
+              if [ "$OS" = "Linux" ]; then
+                echo "libc_key=-$LIBC" >> "$GITHUB_OUTPUT"
+              fi
 
         - name: Determine asset name (Windows)
           if: runner.os == 'Windows'
@@ -69,7 +97,7 @@ runs:
           uses: actions/cache@v5
           with:
               path: ~/.lde/lde${{ runner.os == 'Windows' && '.exe' || '' }}
-              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}${{ inputs.platform != '' && format('-{0}', inputs.platform) || '' }}
+              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}${{ steps.asset_unix.outputs.libc_key }}${{ inputs.platform != '' && format('-{0}', inputs.platform) || '' }}
 
         - name: Install lde (Unix)
           if: runner.os != 'Windows'
