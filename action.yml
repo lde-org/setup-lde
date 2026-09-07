@@ -21,6 +21,10 @@ inputs:
         description: "Override libc variant for Linux builds (e.g., 'musl', 'glibc'). Defaults to auto-detected."
         required: false
         default: ""
+    dir:
+        description: "Directory to install lde into. Empty uses the platform default (~/.lde, or %USERPROFILE%\\.lde on Windows)."
+        required: false
+        default: ""
 
 runs:
     using: "composite"
@@ -92,49 +96,69 @@ runs:
               echo "asset=lde-windows-$arch.zip" >> $env:GITHUB_OUTPUT
               echo "inner=lde-windows-$arch.exe" >> $env:GITHUB_OUTPUT
 
+        - name: Compute install dir cache suffix
+          id: dirkey
+          shell: bash
+          run: |
+              DIR_KEY=""
+              if [ -n "${{ inputs.dir }}" ]; then
+                # Cache keys must be filesystem-safe (no ':' or '\' from Windows
+                # paths); collapse the dir to alphanumerics. Empty default keeps
+                # the key byte-identical to before, so existing caches still hit.
+                DIR_KEY="$(printf '%s' "${{ inputs.dir }}" | tr -c 'A-Za-z0-9' '-')"
+              fi
+              echo "dir_key=$DIR_KEY" >> "$GITHUB_OUTPUT"
+
         - name: Cache lde
           id: cache
           uses: actions/cache@v5
           with:
-              path: ~/.lde/lde${{ runner.os == 'Windows' && '.exe' || '' }}
-              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}${{ steps.asset_unix.outputs.libc_key }}${{ inputs.platform != '' && format('-{0}', inputs.platform) || '' }}
+              path: ${{ inputs.dir != '' && inputs.dir || '~/.lde' }}/lde${{ runner.os == 'Windows' && '.exe' || '' }}
+              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}${{ steps.asset_unix.outputs.libc_key }}${{ inputs.platform != '' && format('-{0}', inputs.platform) || '' }}${{ steps.dirkey.outputs.dir_key }}
 
         - name: Install lde (Unix)
           if: runner.os != 'Windows'
           shell: bash
+          env:
+              LDE_DIR: ${{ inputs.dir }}
           run: |
-              mkdir -p "$HOME/.lde"
+              DIR="${LDE_DIR:-$HOME/.lde}"
+              mkdir -p "$DIR"
               if [ "${{ steps.cache.outputs.cache-hit }}" != "true" ]; then
                 curl -fL "https://github.com/lde-org/lde/releases/download/${{ steps.resolve.outputs.tag }}/${{ steps.asset_unix.outputs.asset }}" \
-                  -o "$HOME/.lde/lde.zip"
+                  -o "$DIR/lde.zip"
                 if command -v unzip >/dev/null 2>&1; then
-                  unzip -o -q "$HOME/.lde/lde.zip" -d "$HOME/.lde"
+                  unzip -o -q "$DIR/lde.zip" -d "$DIR"
                 elif command -v busybox >/dev/null 2>&1; then
-                  busybox unzip -o -q "$HOME/.lde/lde.zip" -d "$HOME/.lde"
+                  busybox unzip -o -q "$DIR/lde.zip" -d "$DIR"
                 elif command -v python3 >/dev/null 2>&1; then
-                  python3 -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$HOME/.lde/lde.zip" "$HOME/.lde"
+                  python3 -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$DIR/lde.zip" "$DIR"
                 else
                   echo "Error: no unzip available (install unzip, busybox, or python3 and re-run)" >&2
                   exit 1
                 fi
-                mv "$HOME/.lde/${{ steps.asset_unix.outputs.inner }}" "$HOME/.lde/lde"
-                rm -f "$HOME/.lde/lde.zip"
-                chmod +x "$HOME/.lde/lde"
+                mv "$DIR/${{ steps.asset_unix.outputs.inner }}" "$DIR/lde"
+                rm -f "$DIR/lde.zip"
+                chmod +x "$DIR/lde"
               fi
-              [ -z "${{ inputs.platform }}" ] && "$HOME/.lde/lde" --setup
-              echo "$HOME/.lde" >> "$GITHUB_PATH"
+              [ -z "${{ inputs.platform }}" ] && "$DIR/lde" --setup
+              echo "$DIR" >> "$GITHUB_PATH"
 
         - name: Install lde (Windows)
           if: runner.os == 'Windows'
           shell: pwsh
+          env:
+              LDE_DIR: ${{ inputs.dir }}
           run: |
-              New-Item -ItemType Directory "$env:USERPROFILE\.lde" -Force | Out-Null
+              $dir = if ($env:LDE_DIR) { $env:LDE_DIR } else { Join-Path $env:USERPROFILE ".lde" }
+              New-Item -ItemType Directory $dir -Force | Out-Null
+              $zip = Join-Path $dir "lde.zip"
               if ("${{ steps.cache.outputs.cache-hit }}" -ne "true") {
                 Invoke-WebRequest "https://github.com/lde-org/lde/releases/download/${{ steps.resolve.outputs.tag }}/${{ steps.asset_windows.outputs.asset }}" `
-                  -OutFile "$env:USERPROFILE\.lde\lde.zip"
-                Expand-Archive -Path "$env:USERPROFILE\.lde\lde.zip" -DestinationPath "$env:USERPROFILE\.lde" -Force
-                Move-Item -Path "$env:USERPROFILE\.lde\${{ steps.asset_windows.outputs.inner }}" -Destination "$env:USERPROFILE\.lde\lde.exe" -Force
-                Remove-Item "$env:USERPROFILE\.lde\lde.zip" -Force
+                  -OutFile $zip
+                Expand-Archive -Path $zip -DestinationPath $dir -Force
+                Move-Item -Path (Join-Path $dir "${{ steps.asset_windows.outputs.inner }}") -Destination (Join-Path $dir "lde.exe") -Force
+                Remove-Item $zip -Force
               }
-              & "$env:USERPROFILE\.lde\lde.exe" --setup
-              echo "$env:USERPROFILE\.lde" >> $env:GITHUB_PATH
+              & (Join-Path $dir "lde.exe") --setup
+              echo $dir >> $env:GITHUB_PATH

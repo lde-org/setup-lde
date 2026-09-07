@@ -45,6 +45,16 @@ By default the libc for Linux runners is auto-detected (glibc on GitHub-hosted r
       libc: musl
 ```
 
+### Install into a custom directory
+
+By default lde is installed to `~/.lde` (`%USERPROFILE%\.lde` on Windows). Install elsewhere with the `dir` input:
+
+```yaml
+- uses: lde-org/setup-lde@v1
+  with:
+      dir: ${{ env.LDE_HOME }}
+```
+
 ## Inputs
 
 | Input      | Description                                       | Default       |
@@ -53,10 +63,11 @@ By default the libc for Linux runners is auto-detected (glibc on GitHub-hosted r
 | `platform` | Override platform (`Linux`, `Darwin`, `Android`)  | auto-detected |
 | `arch`     | Override architecture (`x86_64`, `aarch64`)       | auto-detected |
 | `libc`     | Override libc for Linux (`glibc`, `musl`)         | auto-detected |
+| `dir`      | Directory to install lde into                     | `~/.lde` (`%USERPROFILE%\.lde` on Windows) |
 
 ## Supported platforms
 
-Binaries are distributed as zips and extracted to `~/.lde` (or `%USERPROFILE%\.lde` on Windows).
+Binaries are distributed as zips and extracted to `~/.lde` (or `%USERPROFILE%\.lde` on Windows) by default; set the `dir` input to install elsewhere. The action prepends the install directory to the runner's PATH.
 
 On Linux, `libc` selects between the glibc build (default, no suffix) and the musl build.
 
