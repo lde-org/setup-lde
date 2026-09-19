@@ -60,7 +60,7 @@ By default lde is installed to `~/.lde` (`%USERPROFILE%\.lde` on Windows). Insta
 | Input      | Description                                       | Default       |
 | ---------- | ------------------------------------------------- | ------------- |
 | `version`  | Version to install (`0.8.1`, `latest`, `nightly`) | `latest`      |
-| `platform` | Override platform (`Linux`, `Darwin`, `Android`)  | auto-detected |
+| `platform` | Override platform (`Linux`, `Darwin`, `Android`, `FreeBSD`) | auto-detected |
 | `arch`     | Override architecture (`x86_64`, `aarch64`)       | auto-detected |
 | `libc`     | Override libc for Linux (`glibc`, `musl`)         | auto-detected |
 | `dir`      | Directory to install lde into                     | `~/.lde` (`%USERPROFILE%\.lde` on Windows) |
@@ -71,14 +71,16 @@ Binaries are distributed as zips and extracted to `~/.lde` (or `%USERPROFILE%\.l
 
 On Linux, `libc` selects between the glibc build (default, no suffix) and the musl build.
 
-| `platform` | `arch`    | Asset                          |
-| ---------- | --------- | ------------------------------ |
-| `Linux`    | `x86_64`  | `lde-linux-x86-64.zip`         |
-| `Linux`    | `x86_64`  | `lde-linux-x86-64-musl.zip`    |
-| `Linux`    | `aarch64` | `lde-linux-aarch64.zip`        |
-| `Linux`    | `aarch64` | `lde-linux-aarch64-musl.zip`   |
-| `Android`  | `aarch64` | `lde-android-aarch64.zip`      |
-| `Darwin`   | `x86_64`  | `lde-macos-x86-64.zip`         |
-| `Darwin`   | `arm64`   | `lde-macos-aarch64.zip`        |
-| `Windows`  | `x86_64`  | `lde-windows-x86-64.zip`       |
-| `Windows`  | `aarch64` | `lde-windows-aarch64.zip`      |
+| `platform` | `arch`              | Asset                          |
+| ---------- | ------------------- | ------------------------------ |
+| `Linux`    | `x86_64`            | `lde-linux-x86-64.zip`         |
+| `Linux`    | `x86_64`            | `lde-linux-x86-64-musl.zip`    |
+| `Linux`    | `aarch64`           | `lde-linux-aarch64.zip`        |
+| `Linux`    | `aarch64`           | `lde-linux-aarch64-musl.zip`   |
+| `Android`  | `aarch64`           | `lde-android-aarch64.zip`      |
+| `Darwin`   | `x86_64`            | `lde-macos-x86-64.zip`         |
+| `Darwin`   | `arm64`             | `lde-macos-aarch64.zip`        |
+| `FreeBSD`  | `x86_64` / `amd64`  | `lde-freebsd-x86-64.zip`       |
+| `FreeBSD`  | `aarch64` / `arm64` | `lde-freebsd-aarch64.zip`      |
+| `Windows`  | `x86_64`            | `lde-windows-x86-64.zip`       |
+| `Windows`  | `aarch64`           | `lde-windows-aarch64.zip`      |

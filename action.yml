@@ -51,7 +51,7 @@ runs:
               OS="${{ inputs.platform }}"
               ARCH="${{ inputs.arch }}"
               LIBC="${{ inputs.libc }}"
-              [ -z "$OS" ] && { [ "$(uname -o)" = "Android" ] && OS="Android" || OS="$(uname -s)"; }
+              [ -z "$OS" ] && { [ "$(uname -o 2>/dev/null)" = "Android" ] && OS="Android" || OS="$(uname -s)"; }
               [ -z "$ARCH" ] && ARCH="$(uname -m)"
               if [ -n "$LIBC" ] && [ "$OS" != "Linux" ]; then
                 echo "Error: inputs.libc ('$LIBC') is only supported for Linux (resolved platform: $OS)" >&2
@@ -79,6 +79,8 @@ runs:
                 Android-aarch64) BIN="lde-android-aarch64" ;;
                 Darwin-x86_64)   BIN="lde-macos-x86-64" ;;
                 Darwin-arm64)    BIN="lde-macos-aarch64" ;;
+                FreeBSD-amd64|FreeBSD-x86_64)   BIN="lde-freebsd-x86-64" ;;
+                FreeBSD-arm64|FreeBSD-aarch64)  BIN="lde-freebsd-aarch64" ;;
                 *) echo "Unsupported platform: $OS $ARCH"; exit 1 ;;
               esac
               echo "asset=$BIN.zip" >> "$GITHUB_OUTPUT"
@@ -114,7 +116,7 @@ runs:
           uses: actions/cache@v5
           with:
               path: ${{ inputs.dir != '' && inputs.dir || '~/.lde' }}/lde${{ runner.os == 'Windows' && '.exe' || '' }}
-              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}${{ steps.asset_unix.outputs.libc_key }}${{ inputs.platform != '' && format('-{0}', inputs.platform) || '' }}${{ steps.dirkey.outputs.dir_key }}
+              key: lde-${{ steps.resolve.outputs.tag }}-${{ runner.os }}-${{ runner.arch }}${{ steps.asset_unix.outputs.libc_key }}${{ inputs.platform != '' && format('-{0}', inputs.platform) || '' }}${{ inputs.arch != '' && format('-{0}', inputs.arch) || '' }}${{ steps.dirkey.outputs.dir_key }}
 
         - name: Install lde (Unix)
           if: runner.os != 'Windows'
